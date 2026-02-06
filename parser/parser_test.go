@@ -1,0 +1,93 @@
+package parser
+
+import (
+	"custom-interpreter/ast"
+	"custom-interpreter/lexer"
+	"testing"
+)
+
+func TestLetStatements(t *testing.T) {
+	inp := `let x = 5;
+	let y = 10;
+	let foobar = 838383;`
+	l := lexer.New(inp)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+	if program == nil {
+		t.Fatalf("ParseProgram() returned nil")
+	}
+	if len(program.Statements) != 3 {
+		t.Fatalf("program.Statements does not contain 3 statements. got=%d", len(program.Statements))
+	}
+	tests := []struct {
+		expectedIdentifier string
+	}{
+		{"x"},
+		{"y"},
+		{"foobar"},
+	}
+	for i, tt := range tests {
+		stmt := program.Statements[i]
+		if stmt.TokenLiteral() != "let" {
+			t.Fatalf("stmt.TokenLiteral not 'let'. got=%q", stmt.TokenLiteral())
+		}
+		letStmt, ok := stmt.(*ast.LetStatement)
+		if !ok {
+			t.Fatalf("stmt not *ast.LetStatement. got=%T", stmt)
+		}
+		if letStmt.Name.Value != tt.expectedIdentifier {
+			t.Fatalf("letStmt.Name.Value not '%s'. got=%s", tt.expectedIdentifier, letStmt.Name.Value)
+		}
+		if letStmt.Name.TokenLiteral() != tt.expectedIdentifier {
+			t.Fatalf("letStmt.Name.TokenLiteral() not '%s'. got=%s", tt.expectedIdentifier, letStmt.Name.TokenLiteral())
+		}
+	}
+}
+func TestLetStatementsErrors(t *testing.T) {
+	inp := `let x 5;
+	let = 10;
+	let 838383;`
+	l := lexer.New(inp)
+	p := New(l)
+	program := p.ParseProgram()
+	if program == nil {
+		t.Fatalf("ParseProgram() returned nil")
+	}
+	errors := p.Errors()
+	if len(errors) != 3 {
+		t.Fatalf("parser should have 3 errors. got=%d", len(errors))
+	}
+}
+func testLetStatement(t *testing.T, s ast.Statement, name string) bool {
+	if s.TokenLiteral() != "let" {
+		t.Errorf("s.TokenLiteral not 'let'. got=%q", s.TokenLiteral())
+		return false
+	}
+	letStmt, ok := s.(*ast.LetStatement)
+	if !ok {
+		t.Errorf("s not *ast.LetStatement. got=%T", s)
+		return false
+	}
+	if letStmt.Name.Value != name {
+		t.Errorf("letStmt.Name.Value not '%s'. got=%s", name, letStmt.Name.Value)
+		return false
+	}
+	if letStmt.Name.TokenLiteral() != name {
+		t.Errorf("s.Name not '%s'. got=%s", name, letStmt.Name)
+		return false
+	}
+	return true
+}
+
+func checkParserErrors(t *testing.T, p *Parser) {
+	errors := p.Errors()
+	if len(errors) == 0 {
+		return
+	}
+	t.Errorf("parser has %d errors", len(errors))
+	for _, msg := range errors {
+		t.Errorf("parser error: %q", msg)
+	}
+	t.FailNow()
+}
